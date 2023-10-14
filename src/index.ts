@@ -2,7 +2,6 @@ import {
   IListen,
   IMessage,
   Primitives,
-  IListenReturn,
   IConnectionInfo,
   IPullyClassInstance,
 } from "./interfaces/types";
@@ -17,24 +16,20 @@ const PULLY_EVENTS = {
 
 class Pully {
   private serverUrl: string;
+  private token: string;
   private socketInstance: Socket | null = null;
 
   protected channels: string[] = [];
   protected pullyClassInstance = {} as IPullyClassInstance;
 
   constructor(connectionInfo: IConnectionInfo) {
+    this.token = connectionInfo.token;
     this.serverUrl = connectionInfo.serverUrl;
 
     if (!this.socketInstance) {
-      const token = connectionInfo.token;
-      const autoConnect = connectionInfo.autoConnect;
-
-      const connected = autoConnect !== undefined ? autoConnect : true;
-
       this.socketInstance = io(this.serverUrl, {
-        // autoConnect: connected,
         extraHeaders: {
-          token,
+          token: this.token,
         },
       });
     }
@@ -50,9 +45,10 @@ class Pully {
    * */
 
   public subscribe(channelName: string) {
-    // this._checkConnection();
-
-    this.socketInstance?.emit(PULLY_EVENTS.SUBSCRIBE, channelName);
+    this.socketInstance?.emit(PULLY_EVENTS.SUBSCRIBE, {
+      token: this.token,
+      channel: channelName,
+    });
     this.channels.push(channelName);
 
     const listen = this._listen();
@@ -72,9 +68,10 @@ class Pully {
    * */
 
   public unsubscribe(channelName: string) {
-    // this._checkConnection();
-
-    this.socketInstance?.emit(PULLY_EVENTS.UNSUBSCRIBE, channelName);
+    this.socketInstance?.emit(PULLY_EVENTS.UNSUBSCRIBE, {
+      channel: channelName,
+      token: this.token,
+    });
     const channelIndex = this.channels.findIndex(
       (channel) => channel === channelName
     );
@@ -122,8 +119,6 @@ class Pully {
     channelName: string,
     data: IMessage<M>
   ) {
-    // this._checkConnection();
-
     const sendMessage = this._sendMessage(channelName);
     return sendMessage(data);
   }
@@ -133,9 +128,9 @@ class Pully {
    * @param {string} eventName (required) - The name of the channel to listen to.
    * */
 
-  public listen({ eventName, callback }: IListen) {
+  public listen({ callback }: IListen) {
     const listen = this._listen();
-    listen({ eventName, callback });
+    listen({ callback });
   }
 
   protected _listen() {
@@ -143,20 +138,18 @@ class Pully {
       eventName = PULLY_EVENTS.RECEIVE_MESSAGE,
       callback,
     }: IListen) => {
-      this.socketInstance?.on(eventName, (data: IListenReturn) => {
-        callback(data);
-      });
+      this.socketInstance?.on(eventName, callback);
     };
   }
 
   protected _sendMessage<M extends Primitives>(channelName: string) {
     return (data: IMessage<M>) => {
-      const { event, message, timeout = 0 } = data;
+      const { message, timeout = 0 } = data;
 
       const messageToSend = {
         channelName,
         message,
-        event,
+        token: this.token,
       };
 
       if (timeout > 0) {

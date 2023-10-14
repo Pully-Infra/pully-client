@@ -23,7 +23,7 @@ export interface IPullyClassInstance {
 
 export interface IListen {
   eventName?: string;
-  callback: (data: any) => void;
+  callback: (data: IListenReturn) => void;
 }
 
 export interface IListenReturn {
