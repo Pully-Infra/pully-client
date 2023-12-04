@@ -1,6 +1,7 @@
 export interface IConnectionInfo {
-  serverUrl: string;
+  serverUrl?: string;
   token: string;
+  appId: string;
   autoConnect?: boolean;
 }
 

@@ -11,6 +11,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsup",
+    "esbuild": "esbuild src/index.ts --bundle --outfile=dist-esbuild/index.js",
     "publish": "npm run build && npm publish"
   },
   "author": "David Ajayi",

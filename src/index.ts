@@ -17,19 +17,39 @@ const PULLY_EVENTS = {
 class Pully {
   private serverUrl: string;
   private token: string;
+  private appId: string;
   private socketInstance: Socket | null = null;
 
   protected channels: string[] = [];
   protected pullyClassInstance = {} as IPullyClassInstance;
 
-  constructor(connectionInfo: IConnectionInfo) {
-    this.token = connectionInfo.token;
-    this.serverUrl = connectionInfo.serverUrl;
+  constructor({ token, appId, serverUrl = "" }: IConnectionInfo) {
+    this.token = token;
+    this.serverUrl = serverUrl;
+    this.appId = appId;
+
+    const appIdRegex = /^[^/]*$/;
+
+    if (!this.serverUrl || !this.appId) {
+      throw new Error(
+        "Server URL and App ID is required. (serverUrl: string, appId: string)"
+      );
+    }
+
+    if (!appIdRegex.test(this.appId)) {
+      throw new Error(
+        "App ID can only be a string and must not contain a forward slash"
+      );
+    }
+
+    const namespace = `/${this.appId}`;
 
     if (!this.socketInstance) {
-      this.socketInstance = io(this.serverUrl, {
-        extraHeaders: {
+      this.socketInstance = io(`${this.serverUrl}${namespace}`, {
+        transports: ["websocket"],
+        auth: {
           token: this.token,
+          appId: namespace,
         },
       });
     }
@@ -46,7 +66,6 @@ class Pully {
 
   public subscribe(channelName: string) {
     this.socketInstance?.emit(PULLY_EVENTS.SUBSCRIBE, {
-      token: this.token,
       channel: channelName,
     });
     this.channels.push(channelName);
@@ -70,7 +89,6 @@ class Pully {
   public unsubscribe(channelName: string) {
     this.socketInstance?.emit(PULLY_EVENTS.UNSUBSCRIBE, {
       channel: channelName,
-      token: this.token,
     });
     const channelIndex = this.channels.findIndex(
       (channel) => channel === channelName
@@ -149,7 +167,6 @@ class Pully {
       const messageToSend = {
         channelName,
         message,
-        token: this.token,
       };
 
       if (timeout > 0) {
@@ -169,6 +186,10 @@ class Pully {
       );
     }
   };
+}
+
+if (window) {
+  (window as any).Pully = Pully;
 }
 
 export default Pully;
